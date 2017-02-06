@@ -1,5 +1,9 @@
 import numpy as np
 
+"""
+Contains classes and functions related to creating HalfEdgeTriangulation datastructures.
+"""
+
 class Vertex(object):
     def __init__(self, halfedge = None, coord_3d = None, 
                  coord_2d_orig = None, coord_2d_prime = None):
@@ -7,14 +11,74 @@ class Vertex(object):
         self.halfedge = halfedge
         self.coord_3d = coord_3d
         self.coord_2d_orig = coord_2d_orig
-        self.coord_2d_prime = coord_2d_prime
-        pass
-        
+        self.coord_2d_prime = coord_2d_orig if coord_2d_prime is None else coord_2d_prime
+
+    @property
+    def coord_2d(self):
+        if self.coord_2d_prime is None:
+            self.coord_2d_prime = self.coord_2d_orig
+        return self.coord_2d_prime
+
+    def get_halfedges(self):
+        e_start = self.halfedge
+        edges = [e_start]
+        e = e_start.e_op.e_prev
+        while e != e_start:
+            edges.append(e)
+            e = e_start.e_op.e_prev
+        return edges
+
+    def get_faces(self):
+        edges = self.get_halfedges()
+        faces = [e.face for e in edges]
+        return faces
+
+
 class Face(object):
     def __init__(self, halfedge = None, boundary = False):
         # only need pointer to a single halfedge that points to Vertex
         self.halfedge = halfedge
         self.boundary = boundary
+
+    def get_face_vertices(self):
+        # Returns vertices for a face.
+        e_start = self.halfedge
+        vs = [e_start.vertex]
+        e = e_start.e_next
+        while e != e_start:
+            vs.append(e.vertex)
+            e = e.e_next
+        return vs
+
+    def get_halfedges(self):
+        e_start = self.halfedge
+        edges = [e_start]
+        e = e_start.e_next
+        while e != e_start:
+            edges.append(e)
+            e = e.e_next
+        return edges
+
+    def get_adjacent_faces(self):
+        # Get shared faces in available
+        e_start = self.halfedge
+        faces = [e_start.e_op.face]
+        e = e_start.e_next
+        while e != e_start:
+            faces.append(e.e_op.face)
+            e = e.e_next
+        return faces
+
+    def get_shared_edge(self,face):
+        # Given two faces, return shared edge
+        if self == face:
+            return ValueError('Faces are the same!')
+        # Get halfedges and check face pointer of e_op.
+        es = self.get_halfedges()
+        for e in es:
+            if e.e_op.face == face:
+                return e
+        return None
 
 class HalfEdge(object):
     def __init__(self, vertex = None, e_op = None, e_next = None, 
