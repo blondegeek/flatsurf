@@ -30,7 +30,7 @@ class Flattening(object):
 
     def flatten_face(self, face):
         # Get vertices for given face
-        v = face.get_face_vertices()
+        v = face.get_vertices()
 
         # Check that the face only has three vertices
         # We do not want to lay down boundaries
@@ -100,19 +100,17 @@ class Flattening(object):
 
             # Need to mark face as flattened before relaxing.
             self.flattened.add(face)
-            self.available = self.available - set(face)
 
             self.relax()
             return None
 
         # Mark face as flattened and remove from available.
         self.flattened.add(face)
-        self.available = self.available - set(face)
         return None
 
     def relax(self):
         # Relax all nodes in flattened triangulation.
-        vertices = set([face.get_face_vertices() for face in self.flattened])
+        vertices = set([face.get_vertices() for face in self.flattened])
         for v in vertices:
             adjust_vertex(self.delta, self.Et, v)
 
@@ -121,10 +119,17 @@ class Flattening(object):
         self.active.append(seed)
         while len(self.active) != 0:
             face = self.active.pop()
+            # Skip if face is a boundary.
+            if face.boundary == True:
+                continue
             self.flatten(face)
             shared = face.get_adjacent_faces()
+            # Should this be a set to ensure no duplicates?
             add_to_active = [s for s in shared if s in self.available]
+            # Add faces to active
             self.active.append(add_to_active)
+            # Remove from available
+            self.available = self.available - set(add_to_active)
 
 ### Energy Functions
 def f_energy(vertex1, vertex2):

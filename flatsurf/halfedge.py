@@ -40,7 +40,7 @@ class Face(object):
         self.halfedge = halfedge
         self.boundary = boundary
 
-    def get_face_vertices(self):
+    def get_vertices(self):
         # Returns vertices for a face.
         e_start = self.halfedge
         vs = [e_start.vertex]
