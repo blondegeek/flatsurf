@@ -1,5 +1,5 @@
 import numpy as np
-from flatsurf.halfedge import HalfEdgeTriangulation, constructHalfEdgeFromSimplices
+from flatsurf.halfedge import HalfEdgeTriangulation
 
 
 """
@@ -8,7 +8,7 @@ McCartney, J., Hinds, B. K. & Seow, B. L. Flattening of triangulationed surfaces
 CAD Comput. Aided Des. 31, 249-260 (1999).
 """
 
-class Flattening(object):
+class McCartney1999Flattening(object):
     def __init__(self, triangulation_3d, Et=1e-3, delta=1e-3):
         self.triangulation_3d = triangulation_3d
         self.faces = self.triangulation_3d.faces
@@ -24,7 +24,7 @@ class Flattening(object):
         faces = self.faces
         face_coords = [f.halfedge.vertex.coord_3d for f in faces]
         f_sort = zip(faces, face_coords)
-        f_sort = f_sort.sort(key=lambda x: x[1])
+        f_sort.sort(key=lambda x: list(x[1]))
         seed_face = f_sort[len(f_sort) / 2][0]
         return seed_face
 
@@ -49,13 +49,13 @@ class Flattening(object):
             # Place first coordinate at zero
             # May need to change this for laying down new piece...
             # COME BACK TO THIS
-            v[0].coord_2d = np.array([0., 0.])
-            v[1].coord_2d = np.array([sides[1], 0.])
+            v[0].coord_2d_orig = np.array([0., 0.])
+            v[1].coord_2d_orig = np.array([sides[1], 0.])
             # intersection of circles at v[0] with r = side_3 and v[1] with r = side_2
             third_coord = get_circles_intersection(v[0].coord_2d, sides[2], v[1].coord_2d, sides[1])
             # Should return two solutions, taking first by convention
             # Also should error handle if something goes wrong
-            v[2].coord_2d = third_coord[0]
+            v[2].coord_2d_orig = third_coord[0]
 
         # Error handling -- this shouldn't happen.
         elif free == 2:
@@ -64,8 +64,8 @@ class Flattening(object):
         # Case 2: Some vertices already flattened.
         elif free == 1:
             i = coord_2d.index(None)
-            third_coord = get_circles_intersection(v[(i + 1) % 3].coord_2d, sides[(i + 1) % 3],
-                                                   v[i + 2 % 3].coord_2d, sides[(i + 2) % 3])
+            third_coord = get_circles_intersection(v[(i + 1) % 3].coord_2d, sides[(i + 0) % 3],
+                                                   v[(i + 2) % 3].coord_2d, sides[(i + 2) % 3])
             # Should return two solutions, taking first by convention
             # Also should error handle if something goes wrong
             v[i].coord_2d_orig = third_coord[0]
@@ -82,18 +82,18 @@ class Flattening(object):
             if len(not_flattened) == 0:
                 # Pick random point to average.
                 i = np.random.randint(0, 3)
-                third_coord = get_circles_intersection(v[(i + 1) % 3].coord_2d, sides[(i + 1) % 3],
+                third_coord = get_circles_intersection(v[(i + 1) % 3].coord_2d, sides[(i + 0) % 3],
                                                        v[i + 2 % 3].coord_2d, sides[(i + 2) % 3])
-                v[i].coord_2d_prime = ( v[i].coord_2d + third_coord ) / 2.
+                v[i].coord_2d_prime = (v[i].coord_2d + third_coord[0]) / 2.
 
             elif len(not_flattened) == 1:
                 # Pick one of points on edge for constrained flattening.
                 e = face.get_shared_edge(not_flattened.pop())
                 i = v.index(e.vertex)
 
-                third_coord = get_circles_intersection(v[(i + 1) % 3].coord_2d, sides[(i + 1) % 3],
-                                                       v[i + 2 % 3].coord_2d, sides[(i + 2) % 3])
-                v[i].coord_2d_prime = (v[i].coord_2d + third_coord) / 2.
+                third_coord = get_circles_intersection(v[(i + 1) % 3].coord_2d, sides[(i + 0) % 3],
+                                                       v[(i + 2) % 3].coord_2d, sides[(i + 2) % 3])
+                v[i].coord_2d_prime = (v[i].coord_2d + third_coord[0]) / 2.
 
             else:
                 raise ValueError("This should've been an unconstrained flattening.")
@@ -110,7 +110,9 @@ class Flattening(object):
 
     def relax(self):
         # Relax all nodes in flattened triangulation.
-        vertices = set([face.get_vertices() for face in self.flattened])
+        vertices = set()
+        for face in self.flattened:
+            vertices.union(set(face.get_vertices()))
         for v in vertices:
             adjust_vertex(self.delta, self.Et, v)
 
@@ -122,12 +124,12 @@ class Flattening(object):
             # Skip if face is a boundary.
             if face.boundary == True:
                 continue
-            self.flatten(face)
+            self.flatten_face(face)
             shared = face.get_adjacent_faces()
             # Should this be a set to ensure no duplicates?
             add_to_active = [s for s in shared if s in self.available]
             # Add faces to active
-            self.active.append(add_to_active)
+            self.active += add_to_active
             # Remove from available
             self.available = self.available - set(add_to_active)
 
@@ -181,9 +183,12 @@ def get_circles_intersection(center1, radius1, center2, radius2):
     else:
         # Two solutions
         a = (radius1 ** 2 - radius2 ** 2 + d ** 2) / (2. * d)
+        h = np.sqrt(radius1 ** 2 - a ** 2)
+        dy = center2[1] - center1[1]
+        dx = center2[0] - center1[0]
         p2 = center1 + a * (center2 - center1) / d
-        x3 = p2[0] + h(center2[1] - center1[1]) / d
-        y3 = p2[1] - h(center2[0] - center1[0]) / d
-        x3p = p2[0] - h(center2[1] - center1[1]) / d
-        y3p = p2[1] + h(center2[0] - center1[0]) / d
-        return (x3, y3), (x3p, y3p)
+        x3 = p2[0] + h * dy / d
+        y3 = p2[1] - h * dx / d
+        x3p = p2[0] - h * dy / d
+        y3p = p2[1] + h * dx / d
+        return np.array([x3, y3]), np.array([x3p, y3p])
