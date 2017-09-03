@@ -19,7 +19,7 @@ DEFAULT_AXIS = dict(showbackground=True,
                     zerolinecolor="rgb(255, 255, 255)",
                     )
 
-DEFAULT_LAYOUT = Layout(show_ledgend=False,
+DEFAULT_LAYOUT = Layout(showlegend=False,
                         width=500,
                         height=500,
                         scene=Scene(xaxis=XAxis(DEFAULT_AXIS),
