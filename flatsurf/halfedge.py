@@ -61,7 +61,7 @@ class Face(object):
         return edges
 
     def get_adjacent_faces(self):
-        # Get shared faces in available
+        # Get shared faces
         e_start = self.halfedge
         faces = [e_start.e_op.face]
         e = e_start.e_next
@@ -73,7 +73,7 @@ class Face(object):
     def get_shared_edge(self, face):
         # Given two faces, return shared edge
         if self == face:
-            return ValueError('Faces are the same!')
+            raise ValueError('Faces are the same!')
         # Get halfedges and check face pointer of e_op.
         es = self.get_halfedges()
         for e in es:
@@ -283,7 +283,7 @@ class HalfEdgeTriangulation(object):
         self._create_boundary_faces()
 
     @classmethod
-    def create_triangulation_from_coords_and_simplices(cls, coords, simplices):
+    def from_coords_and_simplices(cls, coords, simplices):
         """Create triangulation from coordinates of vertices and simplices.
 
         coords: List of np.array of shape (3,), coordinates for vertices.

@@ -115,23 +115,23 @@ class HalfEdgeTriangulationTest(unittest.TestCase):
             # Check that ValueError isn't thrown.
             triangulation._get_face_candidate_halfedges(face)
 
-    def test_create_triangulation_from_coords_and_simplices(self):
+    def test_from_coords_and_simplices(self):
         # One Triangle
-        a = halfedge.HalfEdgeTriangulation.create_triangulation_from_coords_and_simplices(
+        a = halfedge.HalfEdgeTriangulation.from_coords_and_simplices(
                 [np.array([0, 0, 0]), np.array([1, 1, 1]),
                  np.array([1, 0, 1])], [[0, 1, 2]])
         self.assertEqual(len(a.boundaries), 1)
         self.assertEqual(len(a.faces), 1)
 
         # Two triangle
-        b = halfedge.HalfEdgeTriangulation.create_triangulation_from_coords_and_simplices(
+        b = halfedge.HalfEdgeTriangulation.from_coords_and_simplices(
             [np.array([0, 0, 0]), np.array([1, 1, 1]), np.array([1, 0, 1]), np.array([1, 0, 0])],
             [[0, 1, 2], [0, 1, 3]])
         self.assertEqual(len(b.boundaries), 1)
         self.assertEqual(len(b.faces), 2)
 
         # Two boundaries
-        c = halfedge.HalfEdgeTriangulation.create_triangulation_from_coords_and_simplices(
+        c = halfedge.HalfEdgeTriangulation.from_coords_and_simplices(
             [np.array([0, 1, 1]), np.array([0, -1, 1]), np.array([0, -1, -1]), np.array([0, 1, -1]),
              np.array([0, 2, 2]), np.array([0, -2, 2]), np.array([0, -2, -2]), np.array([0, 2, -2])],
             [[0, 1, 4], [1, 4, 5], [1, 2, 5], [2, 5, 6], [2, 3, 6], [3, 6, 7], [0, 3, 7], [0, 4, 7]]

@@ -40,9 +40,8 @@ class McCartney1999Flattening(object):
         coord_2d = [ver.coord_2d for ver in v]
         free = coord_2d.count(None)
 
-        sides = [np.linalg.norm(v[0].coord_3d - v[1].coord_3d),
-                 np.linalg.norm(v[1].coord_3d - v[2].coord_3d),
-                 np.linalg.norm(v[2].coord_3d - v[0].coord_3d)]
+        sides = [np.linalg.norm(v[i].coord_3d - v[(i + 1) % 3].coord_3d)
+                 for i in range(3)]
 
         # Case 1: First triangle of a 2D triangulation
         if free == 3:
@@ -50,8 +49,8 @@ class McCartney1999Flattening(object):
             # May need to change this for laying down new piece...
             # COME BACK TO THIS
             v[0].coord_2d_orig = np.array([0., 0.])
-            v[1].coord_2d_orig = np.array([sides[1], 0.])
-            # intersection of circles at v[0] with r = side_3 and v[1] with r = side_2
+            v[1].coord_2d_orig = np.array([sides[0], 0.])
+            # intersection of circles at v[0] with r = sides[2] and v[1] with r = sides[1]
             third_coord = get_circles_intersection(v[0].coord_2d, sides[2], v[1].coord_2d, sides[1])
             # Should return two solutions, taking first by convention
             # Also should error handle if something goes wrong
@@ -73,30 +72,31 @@ class McCartney1999Flattening(object):
         # Case 3: All vertices flattened.
         elif free == 0:
             # Laying down a constrained vertex
-
             # Need to pick a vertex (there will be two) that is exposed to current boundary of 2D triangulation
-            adj_f = face.get_adjacent_faces()
-            not_flattened = filter(lambda x: x in self.flattened, adj_f)
-
+            adj_f = filter(lambda x: x.boundary == False, list(set(face.get_adjacent_faces())))
+            not_flattened = filter(lambda x: x not in self.flattened, adj_f)
             # I'm not sure if this case should ever happen, but we're going to handle it anyway.
             if len(not_flattened) == 0:
                 # Pick random point to average.
                 i = np.random.randint(0, 3)
-                third_coord = get_circles_intersection(v[(i + 1) % 3].coord_2d, sides[(i + 0) % 3],
-                                                       v[i + 2 % 3].coord_2d, sides[(i + 2) % 3])
-                v[i].coord_2d_prime = (v[i].coord_2d + third_coord[0]) / 2.
 
             elif len(not_flattened) == 1:
                 # Pick one of points on edge for constrained flattening.
                 e = face.get_shared_edge(not_flattened.pop())
                 i = v.index(e.vertex)
 
-                third_coord = get_circles_intersection(v[(i + 1) % 3].coord_2d, sides[(i + 0) % 3],
-                                                       v[(i + 2) % 3].coord_2d, sides[(i + 2) % 3])
-                v[i].coord_2d_prime = (v[i].coord_2d + third_coord[0]) / 2.
+            elif len(not_flattened) > 1:
+                # NOT SURE THIS SHOULD BE HANDLED
+                # Get common vertex
+                not_flattened_vertices = [set(f.get_vertices()) for f in not_flattened]
+                i = v.index(set.intersection(set(v), *not_flattened_vertices).pop())
 
             else:
                 raise ValueError("This should've been an unconstrained flattening.")
+
+            third_coord = get_circles_intersection(v[(i + 1) % 3].coord_2d, sides[(i + 0) % 3],
+                                                   v[(i + 2) % 3].coord_2d, sides[(i + 2) % 3])
+            v[i].coord_2d_prime = (v[i].coord_2d + third_coord[0]) / 2.
 
             # Need to mark face as flattened before relaxing.
             self.flattened.add(face)
@@ -121,6 +121,8 @@ class McCartney1999Flattening(object):
         self.active.append(seed)
         while len(self.active) != 0:
             face = self.active.pop()
+            # Remove face from available
+            self.available = self.available - set([face])
             # Skip if face is a boundary.
             if face.boundary == True:
                 continue
@@ -132,6 +134,7 @@ class McCartney1999Flattening(object):
             self.active += add_to_active
             # Remove from available
             self.available = self.available - set(add_to_active)
+
 
 ### Energy Functions
 def f_energy(vertex1, vertex2):
@@ -152,6 +155,7 @@ def total_energy(vertex):
         energy += f_energy(v1, v2)
     return energy
 
+
 def adjust_vertex(delta, Et, vertex):
     # Given a vertex, determine if adjusting the position of that vertex lowers the energy.
     adjust = [np.array([1, 0]), np.array([-1, 0]),
@@ -168,8 +172,8 @@ def adjust_vertex(delta, Et, vertex):
     else:
         vertex.coord_2d_prime = coord_start
 
-### Utilities
 
+### Utilities
 # May want to see what the fastest implementation for this is in python and put in a separate utility file.
 def get_circles_intersection(center1, radius1, center2, radius2):
     # https://stackoverflow.com/questions/3349125/circle-circle-intersection-points
